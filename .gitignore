@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+build/
+dist/
+下载的视频/
+_test*/
+*.log
+.vscode/
+.idea/
+.DS_Store
+*.spec
