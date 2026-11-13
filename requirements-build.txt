@@ -1,0 +1,4 @@
+PyInstaller==6.21.0
+Pillow==12.2.0
+yt-dlp[default]==2026.10.26
+curl-cffi==0.17.0

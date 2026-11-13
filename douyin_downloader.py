@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-抖音无水印视频下载器 —— 核心逻辑 / 命令行入口
+抖音 / TikTok 无水印视频下载器 —— 核心逻辑 / 命令行入口
 
 用法：
-  1) 双击「抖音视频下载器.exe」：图形界面，粘贴分享口令即可下载
+  1) 双击「抖音视频下载器.exe」：图形界面，粘贴分享链接或口令即可下载
   2) 命令行：抖音视频下载器.exe "https://v.douyin.com/xxxx/" [-o 输出目录]
 
-只使用 Python 标准库，exe 无需任何外部依赖。
+抖音使用 Python 标准库；TikTok 所需的 yt-dlp、curl-cffi 已内嵌在 exe 中。
 """
 import argparse
 import gzip
@@ -42,7 +42,21 @@ def resource_path(rel):
 
 
 def default_outdir():
-    return os.path.join(app_dir(), "下载的视频")
+    """使用当前 Windows 用户的视频目录，不依赖 exe 的存放位置。"""
+    if os.name == "nt":
+        import ctypes
+
+        # FOLDERID_Videos：支持用户把系统“视频”文件夹迁移到其他位置。
+        videos_guid = (ctypes.c_ubyte * 16).from_buffer_copy(
+            bytes.fromhex("18b78c9589ea9c4f8216af681ca47bb9"))
+        path = ctypes.c_wchar_p()
+        result = ctypes.windll.shell32.SHGetKnownFolderPath(
+            videos_guid, 0, None, ctypes.byref(path))
+        if result == 0 and path.value:
+            folder = path.value
+            ctypes.windll.ole32.CoTaskMemFree(path)
+            return folder
+    return os.path.join(os.path.expanduser("~"), "Videos")
 
 
 def new_opener():
@@ -191,8 +205,19 @@ def download_file(url, path, opener, progress=None, timeout=60):
 
 
 def download_one(url, outdir, log=print, progress=None):
-    """下载单个链接，返回保存路径。"""
-    log("解析链接：%s" % url)
+    """按域名自动识别平台，下载单个链接并返回保存路径。"""
+    from urllib.parse import urlparse
+
+    host = (urlparse(url).hostname or "").lower()
+    if host == "tiktok.com" or host.endswith(".tiktok.com") \
+            or host in ("vm.tiktok.com", "vt.tiktok.com", "m.tiktok.com"):
+        from tiktok_downloader import download_tiktok
+        return download_tiktok(url, outdir, log=log, progress=progress)
+    if not (host == "douyin.com" or host.endswith(".douyin.com")
+            or host == "iesdouyin.com" or host.endswith(".iesdouyin.com")):
+        raise RuntimeError("暂不支持此网站，请使用抖音或 TikTok 的视频链接。")
+
+    log("解析抖音链接：%s" % url)
     # 抖音先返回风控页，直到某次请求种下 ttwid cookie 才给真实数据。
     # 必须复用同一 CookieJar 连续重试，每轮重走短链以取新签名。
     opener = new_opener()

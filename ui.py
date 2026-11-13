@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""抖音视频下载器 —— 图形界面"""
+"""抖音 / TikTok 视频下载器 —— 图形界面"""
 import os
 import queue
 import subprocess
@@ -20,7 +20,7 @@ PINK = "#FE2C55"
 CYAN = "#25F4EE"
 OK = "#0F9D8A"
 ERR = "#E5484D"
-PLACEHOLDER = "在这里粘贴抖音分享链接或整段口令…\n支持一次粘贴多个链接，每行一个"
+PLACEHOLDER = "粘贴抖音或 TikTok 视频链接、整段分享口令…\n自动识别平台，支持一次粘贴多个链接，每行一个"
 
 
 class App:
@@ -31,7 +31,7 @@ class App:
         self.busy = False
         self.has_placeholder = True
 
-        root.title("抖音视频下载器")
+        root.title("视频下载器 · 抖音 / TikTok")
         root.geometry("700x620")
         root.minsize(620, 560)
         root.configure(bg=BG)
@@ -45,8 +45,9 @@ class App:
         self._body()
         self.root.after(100, self.poll)
 
-        self.log("准备就绪 · 无水印原片 · 保留原声", "ok")
-        self.log("在抖音点「分享 → 复制链接」，粘贴到上方即可。", "dim")
+        self.log("准备就绪 · 抖音 / TikTok · 自动识别 · 保留原声", "ok")
+        self.log("在抖音或 TikTok 点「分享 → 复制链接」，粘贴到上方即可。", "dim")
+        self.log("仅支持无需登录的公开视频；TikTok 需要能够正常访问的网络。", "dim")
 
     # ---------------------------------------------------------------- 界面
     def _style(self):
@@ -99,14 +100,14 @@ class App:
         try:
             self.logo_img = tk.PhotoImage(
                 file=resource_path(os.path.join("assets", "app_logo.png"))
-            )
+            ).subsample(4, 4)
             tk.Label(head, image=self.logo_img, bg=CARD, bd=0).pack(side="left", padx=(0, 14))
         except Exception:
             pass
         texts = ttk.Frame(head, style="Card.TFrame")
         texts.pack(side="left")
-        ttk.Label(texts, text="抖音视频下载器", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(texts, text="无水印原片 · 保留原声 · 一键保存到本地",
+        ttk.Label(texts, text="视频下载器 · 抖音 / TikTok", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(texts, text="自动识别平台 · 无水印原片 · 保留原声",
                   style="Sub.TLabel").pack(anchor="w", pady=(3, 0))
 
     def _body(self):
@@ -115,7 +116,7 @@ class App:
 
         row1 = ttk.Frame(body)
         row1.pack(fill="x")
-        ttk.Label(row1, text="①  粘贴抖音链接", style="Step.TLabel").pack(side="left")
+        ttk.Label(row1, text="①  粘贴抖音 / TikTok 链接", style="Step.TLabel").pack(side="left")
         self.count_var = tk.StringVar(value="已识别 0 个链接")
         ttk.Label(row1, textvariable=self.count_var, style="Hint.TLabel").pack(side="right")
 
@@ -218,7 +219,7 @@ class App:
             return
         urls = extract_urls(self.txt.get("1.0", "end"))
         if not urls:
-            messagebox.showwarning("提示", "没有识别到链接，请先粘贴抖音分享口令。")
+            messagebox.showwarning("提示", "没有识别到链接，请先粘贴抖音或 TikTok 分享链接。")
             return
         self.busy = True
         self.btn.configure(state="disabled", text="下载中…")
@@ -237,6 +238,7 @@ class App:
         ok = 0
         for i, u in enumerate(urls, 1):
             self.q.put(("status", "正在处理第 %d/%d 个链接" % (i, len(urls))))
+            self.q.put(("prog", 0, "正在处理第 %d/%d 个链接" % (i, len(urls))))
             try:
                 download_one(u, self.outdir,
                              log=lambda m: self.q.put(("log", m)),
